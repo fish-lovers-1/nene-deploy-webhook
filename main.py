@@ -59,6 +59,7 @@ async def deploy(
 
     except Exception as e:
         print(e)
+        raise e
 
     finally:
         shutil.rmtree(deploy_dir)
