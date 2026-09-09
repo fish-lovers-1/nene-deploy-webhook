@@ -87,11 +87,10 @@ async def run_migration(compose_prefix: list[str], compose_env: dict[str, str]):
     )
 
     if migration.returncode != 0:
-        print("Migration failed")
-        print(migration.stdout)
-        print(migration.stderr)
-
-        raise HTTPException(status_code=500, detail="Database migration failed")
+        detail = migration.stderr.strip() or migration.stdout.strip()
+        raise HTTPException(
+            status_code=500, detail=f"Failed during migration:\n{detail}"
+        )
 
 
 async def deploy_docker(compose_prefix: list[str], compose_env: dict[str, str]):
@@ -109,11 +108,9 @@ async def deploy_docker(compose_prefix: list[str], compose_env: dict[str, str]):
     )
 
     if deployment.returncode != 0:
-        print("Deployment failed:")
-        print(deployment.stdout)
-        print(deployment.stderr)
+        detail = deployment.stderr.strip() or deployment.stdout.strip()
 
         raise HTTPException(
             status_code=500,
-            detail="Docker deployment failed",
+            detail=f"Failed during deployment:\n{detail}",
         )
