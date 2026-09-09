@@ -1,0 +1,26 @@
+name: nene-deploy
+
+services:
+  webhook:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    restart: unless-stopped
+
+    environment:
+      DEPLOY_TOKEN: ${DEPLOY_TOKEN}
+
+    ports:
+      - "8000:8000"
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    networks:
+      - shared
+
+networks:
+  shared:
+    external: true
+    name: shared
