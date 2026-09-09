@@ -11,7 +11,6 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 app = FastAPI()
 
 DEPLOY_TOKEN = os.environ["DEPLOY_TOKEN"]
-GHCR_TOKEN = os.environ["GHCR_TOKEN"]
 
 security = HTTPBearer()
 
@@ -30,20 +29,6 @@ async def deploy(
 ):
     if credentials.credentials != DEPLOY_TOKEN:
         raise HTTPException(status_code=401, detail="Unauthorised")
-
-    subprocess.run(
-        [
-            "docker",
-            "login",
-            "ghcr.io",
-            "-u",
-            os.environ["GHCR_USERNAME"],
-            "--password-stdin",
-        ],
-        input=os.environ["GHCR_TOKEN"],
-        text=True,
-        check=True,
-    )
 
     deploy_dir = Path(tempfile.mkdtemp(prefix="nene-deploy-"))
 
