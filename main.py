@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 app = FastAPI()
@@ -23,8 +23,9 @@ async def health():
 @app.post("/deploy")
 async def deploy(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
-    env_file: Annotated[UploadFile, File()] = None,
-    compose_file: Annotated[UploadFile, File()] = None,
+    env_file: Annotated[UploadFile, File()],
+    compose_file: Annotated[UploadFile, File()],
+    image_tag: Annotated[str, Form()],
 ):
     if credentials.credentials != DEPLOY_TOKEN:
         raise HTTPException(status_code=401, detail="Unauthorised")
@@ -33,6 +34,9 @@ async def deploy(
 
     env_path = deploy_dir / ".env"
     compose_path = deploy_dir / "compose.yml"
+
+    compose_env = os.environ.copy()
+    compose_env["IMAGE_TAG"] = image_tag
 
     try:
         with env_path.open("wb") as f:
@@ -50,8 +54,8 @@ async def deploy(
             str(env_path),
         ]
 
-        await run_migration(compose)
-        await deploy(compose)
+        await run_migration(compose_prefix=compose, compose_env=compose_env)
+        await deploy_docker(compose_prefix=compose, compose_env=compose_env)
 
     except Exception as e:
         print(e)
@@ -62,7 +66,7 @@ async def deploy(
     return {"status": "deployed"}
 
 
-async def run_migration(compose_prefix: list[str]):
+async def run_migration(compose_prefix: list[str], compose_env: dict[str, str]):
 
     migration = subprocess.run(
         [
@@ -78,6 +82,7 @@ async def run_migration(compose_prefix: list[str]):
         ],
         capture_output=True,
         text=True,
+        env=compose_env,
     )
 
     if migration.returncode != 0:
@@ -88,7 +93,7 @@ async def run_migration(compose_prefix: list[str]):
         raise HTTPException(status_code=500, detail="Database migration failed")
 
 
-async def deploy(compose_prefix: list[str]):
+async def deploy_docker(compose_prefix: list[str], compose_env: dict[str, str]):
     # 2. Deploy only after migration succeeds
     deployment = subprocess.run(
         [
@@ -99,6 +104,7 @@ async def deploy(compose_prefix: list[str]):
         ],
         capture_output=True,
         text=True,
+        env=compose_env,
     )
 
     if deployment.returncode != 0:
